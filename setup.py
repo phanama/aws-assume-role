@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
 
+import io
+
 from setuptools import setup
 
-version = "1.0.0"
+version = "1.0.2"
 
 requirements = [
     'boto3>=1.10',
     'click>=7.0',
 ]
 
+with io.open('README.md', 'r', encoding='utf-8') as f:
+    readme = f.read()
+
 
 setup(
     name='aws-assume-role',
     version=version,
     description=('A helper tool to help you assume AWS roles'),
+    long_description=readme,
+    long_description_content_type='text/markdown',
     author='Yudi A Phanama',
     url='https://github.com/phanama/aws-assume-role',
     packages=[
