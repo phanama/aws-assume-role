@@ -97,8 +97,8 @@ def main(account_id, role_name, external_id, mfa_device_serial_number, mfa_token
         click.echo('Something\'s wrong:', err=True)
         raise
 
-    click.echo('export AWS_ACCESS_KEY_ID={}'.format(assumed_access_key_id))
-    click.echo('export AWS_SECRET_ACCESS_KEY={}'.format(
+    click.echo('export AWS_ACCESS_KEY_ID="{}"'.format(assumed_access_key_id))
+    click.echo('export AWS_SECRET_ACCESS_KEY="{}"'.format(
         assumed_secret_access_key))
-    click.echo('export AWS_SESSION_TOKEN={}'.format(assumed_session_token))
-    click.echo('export ASSUMED_ROLE={}'.format(role_arn))
+    click.echo('export AWS_SESSION_TOKEN="{}"'.format(assumed_session_token))
+    click.echo('export ASSUMED_ROLE="{}"'.format(role_arn))
