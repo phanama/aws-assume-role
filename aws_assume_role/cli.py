@@ -5,9 +5,11 @@ import boto3
 import time
 import re
 
-from botocore.exceptions import ClientError
+from botocore.client import ClientError
 from aws_assume_role import __version__
 from aws_assume_role import utils
+from aws_assume_role.assumer import client,assume_role,assume_role_with_saml,assume_role_with_web_identity
+from aws_assume_role.options import Inclusive
 
 
 def version_message():
@@ -33,19 +35,18 @@ def version_message():
     help='External id to supply'
 )
 @click.option(
-    u'--mfa-token', type=str, required=False,
-    help='The MFA token to pass if using MFA'
+    u'--mfa-device-serial-number', cls=Inclusive, required_with=["mfa_token"], type=str,
+    help=u'The Serial Number of your MFA device. '
+         u'Defaults to arn:aws:iam::ACCOUNT:mfa/CALLER_USER.'
 )
-def main(account_id, role_name, external_id, mfa_token):
+@click.option(
+    u'--mfa-token', type=str, required=False,
+    help=u'The MFA token to pass if using MFA.'
+)
+def main(account_id, role_name, external_id, mfa_device_serial_number, mfa_token):
     """Assumes AWS Role based on the provided explicit account_id and role_name
     Or based on the configured local aws configuration file.
     """
-
-    import logging
-    logging.getLogger('botocore').setLevel(logging.NOTSET)
-    logging.getLogger('boto3').setLevel(logging.NOTSET)
-
-    client = boto3.client('sts')
 
     try:
         caller = client.get_caller_identity()
@@ -57,46 +58,44 @@ def main(account_id, role_name, external_id, mfa_token):
 
     caller_id = caller['UserId']
     caller_account_id = caller['Account']
+    caller_arn = caller['Arn']
     millis = int(round(time.time() * 1000))
 
     session_name = 'aws_assume_{}_{}'.format(caller_id, millis)
 
+    #defaults caller's account id
     if account_id is None:
         account_id = caller_account_id
+        click.echo('# You did not supply --account-id, using current caller id {} as target account_id. . .'.format(caller_account_id))
+    #if account is supplied as alias, try finding the alias
     elif not re.match(r'^\d{12}\b$', account_id):
         account_id_dict = utils.load_account_ids_from_account_file()
         try:
-            account_id = account_id_dict[account_id]
+            account_alias = account_id
+            account_id = account_id_dict[account_alias]
+            click.echo('# You supplied the alias \'{}\'. Using your configured {} as target account_id. . .'.format(account_alias, account_id))
         except KeyError as e:
             click.echo('Account alias {} not found.'.format(e))
             click.echo(
                 'Please check your inputted alias or .aws/accounts file!')
             sys.exit(1)
-
-    if external_id is None:
-        try:
-            external_id = os.environ['AWS_STS_EXTERNAL_ID']
-        except KeyError:
-            pass
+    
+    #defaults mfa_device_serial_number if mfa_token is supplied
+    if (mfa_token) and (mfa_device_serial_number is None):
+        mfa_device_serial_number = re.sub(r':user\/', ':mfa/', caller_arn)
+        click.echo('# You supplied mfa_token without mfa_device_serial_number, using {} by default. . .'.format(mfa_device_serial_number))
 
     role_arn = 'arn:aws:iam::{}:role/{}'.format(account_id, role_name)
 
-    try:
-        if external_id:
-            response = client.assume_role(
-                RoleArn=role_arn, RoleSessionName=session_name, ExternalId=external_id)
-        else:
-            response = client.assume_role(
-                RoleArn=role_arn, RoleSessionName=session_name)
-    except ClientError as e:
-        click.echo(e)
-        sys.exit(1)
-    except Exception:
-        raise
+    response = assume_role(role_arn, session_name, external_id, mfa_device_serial_number, mfa_token)
 
-    assumed_access_key_id = response['Credentials']['AccessKeyId']
-    assumed_secret_access_key = response['Credentials']['SecretAccessKey']
-    assumed_session_token = response['Credentials']['SessionToken']
+    try:
+        assumed_access_key_id = response['Credentials']['AccessKeyId']
+        assumed_secret_access_key = response['Credentials']['SecretAccessKey']
+        assumed_session_token = response['Credentials']['SessionToken']
+    except KeyError as e:
+        click.echo('Something\'s wrong:', err=True)
+        raise
 
     click.echo('export AWS_ACCESS_KEY_ID={}'.format(assumed_access_key_id))
     click.echo('export AWS_SECRET_ACCESS_KEY={}'.format(
