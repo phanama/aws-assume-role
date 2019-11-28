@@ -8,7 +8,7 @@ import re
 from botocore.client import ClientError
 from aws_assume_role import __version__
 from aws_assume_role import utils
-from aws_assume_role.assumer import client,assume_role,assume_role_with_saml,assume_role_with_web_identity
+from aws_assume_role.assumer import client, assume_role, assume_role_with_saml, assume_role_with_web_identity
 from aws_assume_role.options import Inclusive
 
 
@@ -63,31 +63,35 @@ def main(account_id, role_name, external_id, mfa_device_serial_number, mfa_token
 
     session_name = 'aws_assume_{}_{}'.format(caller_id, millis)
 
-    #defaults caller's account id
+    # defaults caller's account id
     if account_id is None:
         account_id = caller_account_id
-        click.echo('# You did not supply --account-id, using current caller id {} as target account_id. . .'.format(caller_account_id))
-    #if account is supplied as alias, try finding the alias
+        click.echo(
+            '# You did not supply --account-id, using current caller id {} as target account_id. . .'.format(caller_account_id))
+    # if account is supplied as alias, try finding the alias
     elif not re.match(r'^\d{12}\b$', account_id):
         account_id_dict = utils.load_account_ids_from_account_file()
         try:
             account_alias = account_id
             account_id = account_id_dict[account_alias]
-            click.echo('# You supplied the alias \'{}\'. Using your configured {} as target account_id. . .'.format(account_alias, account_id))
+            click.echo('# You supplied the alias \'{}\'. Using your configured {} as target account_id. . .'.format(
+                account_alias, account_id))
         except KeyError as e:
             click.echo('Account alias {} not found.'.format(e))
             click.echo(
                 'Please check your inputted alias or .aws/accounts file!')
             sys.exit(1)
-    
-    #defaults mfa_device_serial_number if mfa_token is supplied
+
+    # defaults mfa_device_serial_number if mfa_token is supplied
     if (mfa_token) and (mfa_device_serial_number is None):
         mfa_device_serial_number = re.sub(r':user\/', ':mfa/', caller_arn)
-        click.echo('# You supplied mfa_token without mfa_device_serial_number, using {} by default. . .'.format(mfa_device_serial_number))
+        click.echo('# You supplied mfa_token without mfa_device_serial_number, using {} by default. . .'.format(
+            mfa_device_serial_number))
 
     role_arn = 'arn:aws:iam::{}:role/{}'.format(account_id, role_name)
 
-    response = assume_role(role_arn, session_name, external_id, mfa_device_serial_number, mfa_token)
+    response = assume_role(role_arn, session_name,
+                           external_id, mfa_device_serial_number, mfa_token)
 
     try:
         assumed_access_key_id = response['Credentials']['AccessKeyId']

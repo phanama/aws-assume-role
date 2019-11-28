@@ -11,6 +11,7 @@ logging.getLogger('boto3').setLevel(logging.NOTSET)
 
 client = boto3.client('sts')
 
+
 def assume_role(role_arn, session_name, external_id=None, mfa_device_serial_number=None, mfa_token=None):
     '''Assumes role with/without external_id and mfa_token
     '''
@@ -19,16 +20,17 @@ def assume_role(role_arn, session_name, external_id=None, mfa_device_serial_numb
 
     if external_id is None:
         try:
-            #try to load from environment
+            # try to load from environment
             external_id = os.environ['AWS_STS_EXTERNAL_ID']
         except KeyError:
             pass
 
     if external_id:
         sts_kwargs.update({'ExternalId': str(external_id)})
-    
+
     if mfa_token and mfa_device_serial_number:
-        sts_kwargs.update({'TokenCode': str(mfa_token), 'SerialNumber': str(mfa_device_serial_number)})
+        sts_kwargs.update({'TokenCode': str(mfa_token),
+                           'SerialNumber': str(mfa_device_serial_number)})
 
     try:
         response = client.assume_role(**sts_kwargs)
@@ -45,6 +47,7 @@ def assume_role(role_arn, session_name, external_id=None, mfa_device_serial_numb
 
 def assume_role_with_saml():
     pass
+
 
 def assume_role_with_web_identity():
     pass
